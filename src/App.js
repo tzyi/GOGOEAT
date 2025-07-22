@@ -6,13 +6,6 @@ import './App.css';
 const API_KEY = import.meta.env.VITE_GOOGLE_MAP_API_KEY;
 
 function App() {
-  // 調試用：檢查環境變數
-  console.log('Environment variables:', {
-    API_KEY,
-    allEnv: import.meta.env,
-    nodeEnv: import.meta.env.MODE
-  });
-  
   if (!API_KEY) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-100">

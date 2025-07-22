@@ -29,7 +29,7 @@ const SearchBar = ({
               <i className="fas fa-utensils text-white text-xs sm:text-sm"></i>
             </div>
             <h1 className="text-lg sm:text-xl font-bold text-gray-800 logo-text">
-              {process.env.REACT_APP_NAME || 'GOGOEAT'}
+              {import.meta.env.VITE_APP_NAME || 'GOGOEAT'}
             </h1>
           </div>
           
