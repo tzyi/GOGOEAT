@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GOGOEAT - 美食地圖</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#FF6B6B',
+                        secondary: '#4ECDC4',
+                        accent: '#45B7D1',
+                        warning: '#FFA726',
+                        success: '#66BB6A'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .map-container {
+            height: 100vh;
+            position: relative;
+        }
+        
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+        
+        .floating-card {
+            backdrop-filter: blur(10px);
+            background: rgba(255, 255, 255, 0.95);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        
+        .slide-up {
+            animation: slideUp 0.3s ease-out;
+        }
+        
+        @keyframes slideUp {
+            from { transform: translateY(100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        
+        .modal-backdrop {
+            backdrop-filter: blur(4px);
+        }
+        
+        /* RWD 響應式設計 */
+        @media (max-width: 640px) {
+            .floating-card {
+                margin: 0.5rem;
+            }
+            
+            .search-container {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+            
+            .filter-buttons {
+                flex-wrap: wrap;
+                gap: 0.25rem;
+            }
+            
+            .random-btn {
+                padding: 0.5rem 1rem;
+                font-size: 0.875rem;
+            }
+            
+            .modal-content {
+                margin: 1rem;
+                max-height: 90vh;
+                overflow-y: auto;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .logo-text {
+                font-size: 1.125rem;
+            }
+            
+            .search-input {
+                font-size: 1rem;
+            }
+            
+            .filter-btn {
+                padding: 0.5rem 0.75rem;
+                font-size: 0.75rem;
+            }
+        }
+        
+        .location-btn {
+            position: absolute;
+            bottom: 2rem;
+            right: 1rem;
+            z-index: 10;
+        }
+        
+        @media (max-width: 640px) {
+            .location-btn {
+                bottom: 1rem;
+                right: 0.5rem;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- 主地圖界面 -->
+    <div class="map-container">
+        <!-- Google Maps -->
+        <div id="map"></div>
+        
+        <!-- 頂部搜尋欄 -->
+        <div class="absolute top-4 left-4 right-4 z-20">
+            <div class="floating-card rounded-2xl p-3 sm:p-4">
+                <!-- Logo 和隨機按鈕 -->
+                <div class="flex items-center justify-between mb-3 sm:mb-4 search-container">
+                    <div class="flex items-center space-x-2">
+                        <div class="w-6 h-6 sm:w-8 sm:h-8 bg-primary rounded-full flex items-center justify-center">
+                            <i class="fas fa-utensils text-white text-xs sm:text-sm"></i>
+                        </div>
+                        <h1 class="text-lg sm:text-xl font-bold text-gray-800 logo-text">GOGOEAT</h1>
+                    </div>
+                    <!-- 今晚吃什麼按鈕 -->
+                    <button id="randomBtn" class="bg-warning text-white px-3 py-2 sm:px-4 sm:py-2 rounded-full font-medium hover:bg-orange-500 transition-colors flex items-center space-x-1 sm:space-x-2 random-btn">
+                        <i class="fas fa-dice text-sm"></i>
+                        <span class="hidden sm:inline">今晚吃什麼</span>
+                        <span class="sm:hidden">推薦</span>
+                    </button>
+                </div>
+                
+                <!-- 搜尋欄 -->
+                <div class="relative mb-3">
+                    <input type="text" placeholder="搜尋餐廳、美食..." 
+                           class="w-full pl-10 sm:pl-12 pr-4 py-2 sm:py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent search-input">
+                    <i class="fas fa-search absolute left-3 sm:left-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm"></i>
+                </div>
+                
+                <!-- 篩選器 -->
+                <div class="flex space-x-2 overflow-x-auto pb-2 filter-buttons">
+                    <button id="budgetBtn" class="flex items-center space-x-1 sm:space-x-2 bg-gray-100 hover:bg-primary hover:text-white px-3 py-2 sm:px-4 sm:py-2 rounded-full whitespace-nowrap transition-colors filter-btn">
+                        <i class="fas fa-dollar-sign text-xs sm:text-sm"></i>
+                        <span class="text-xs sm:text-sm">預算</span>
+                    </button>
+                    <button id="ratingBtn" class="flex items-center space-x-1 sm:space-x-2 bg-gray-100 hover:bg-primary hover:text-white px-3 py-2 sm:px-4 sm:py-2 rounded-full whitespace-nowrap transition-colors filter-btn">
+                        <i class="fas fa-star text-xs sm:text-sm"></i>
+                        <span class="text-xs sm:text-sm">評分</span>
+                    </button>
+                    <button class="filter-open flex items-center space-x-1 sm:space-x-2 bg-gray-100 hover:bg-primary hover:text-white px-3 py-2 sm:px-4 sm:py-2 rounded-full whitespace-nowrap transition-colors filter-btn">
+                        <i class="fas fa-clock text-xs sm:text-sm"></i>
+                        <span class="text-xs sm:text-sm">營業中</span>
+                    </button>
+                    <button class="filter-parking flex items-center space-x-1 sm:space-x-2 bg-gray-100 hover:bg-primary hover:text-white px-3 py-2 sm:px-4 sm:py-2 rounded-full whitespace-nowrap transition-colors filter-btn">
+                        <i class="fas fa-car text-xs sm:text-sm"></i>
+                        <span class="text-xs sm:text-sm">可停車</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 定位按鈕 -->
+        <button class="location-btn w-12 h-12 bg-white rounded-full shadow-lg flex items-center justify-center hover:bg-gray-50 transition-colors">
+            <i class="fas fa-location-arrow text-primary"></i>
+        </button>
+    </div>
+    
+    <!-- 預算篩選面板 -->
+    <div id="budgetModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden modal-backdrop">
+        <div class="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl p-6 slide-up modal-content">
+            <div class="w-12 h-1 bg-gray-300 rounded-full mx-auto mb-4"></div>
+            <h3 class="text-xl font-semibold mb-6 text-gray-800">設定預算範圍</h3>
+            
+            <div class="space-y-4 mb-6">
+                <div class="filter-option flex justify-between items-center p-4 border border-gray-200 rounded-xl hover:border-primary cursor-pointer" data-budget="under100">
+                    <span class="font-medium">$100 以下</span>
+                    <i class="fas fa-dollar-sign text-success"></i>
+                </div>
+                <div class="filter-option flex justify-between items-center p-4 border border-gray-200 rounded-xl hover:border-primary cursor-pointer" data-budget="100-300">
+                    <span class="font-medium">$100 - $300</span>
+                    <i class="fas fa-dollar-sign text-warning"></i>
+                </div>
+                <div class="filter-option flex justify-between items-center p-4 border border-gray-200 rounded-xl hover:border-primary cursor-pointer" data-budget="300-500">
+                    <span class="font-medium">$300 - $500</span>
+                    <i class="fas fa-dollar-sign text-orange-500"></i>
+                </div>
+                <div class="filter-option flex justify-between items-center p-4 border border-gray-200 rounded-xl hover:border-primary cursor-pointer" data-budget="over500">
+                    <span class="font-medium">$500 以上</span>
+                    <i class="fas fa-dollar-sign text-red-500"></i>
+                </div>
+            </div>
+            
+            <div class="flex space-x-3">
+                <button onclick="app.closeBudgetModal()" class="flex-1 py-3 border border-gray-300 rounded-xl font-medium text-gray-700 hover:bg-gray-50">
+                    取消
+                </button>
+                <button onclick="app.closeBudgetModal()" class="flex-1 py-3 bg-primary text-white rounded-xl font-medium hover:bg-red-500">
+                    確認
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 評分篩選面板 -->
+    <div id="ratingModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden modal-backdrop">
+        <div class="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl p-6 slide-up modal-content">
+            <div class="w-12 h-1 bg-gray-300 rounded-full mx-auto mb-4"></div>
+            <h3 class="text-xl font-semibold mb-6 text-gray-800">最低評分要求</h3>
+            
+            <div class="space-y-4 mb-6">
+                <div class="filter-option flex justify-between items-center p-4 border border-gray-200 rounded-xl hover:border-primary cursor-pointer" data-rating="4.5">
+                    <span class="font-medium">4.5 星以上</span>
+                    <div class="flex text-warning">
+                        <i class="fas fa-star"></i>
+                        <i class="fas fa-star"></i>
+                        <i class="fas fa-star"></i>
+                        <i class="fas fa-star"></i>
+                        <i class="fas fa-star"></i>
+                    </div>
+                </div>
+                <div class="filter-option flex justify-between items-center p-4 border border-gray-200 rounded-xl hover:border-primary cursor-pointer" data-rating="4.0">
+                    <span class="font-medium">4.0 星以上</span>
+                    <div class="flex text-warning">
+                        <i class="fas fa-star"></i>
+                        <i class="fas fa-star"></i>
+                        <i class="fas fa-star"></i>
+                        <i class="fas fa-star"></i>
+                        <i class="far fa-star"></i>
+                    </div>
+                </div>
+                <div class="filter-option flex justify-between items-center p-4 border border-gray-200 rounded-xl hover:border-primary cursor-pointer" data-rating="3.5">
+                    <span class="font-medium">3.5 星以上</span>
+                    <div class="flex text-warning">
+                        <i class="fas fa-star"></i>
+                        <i class="fas fa-star"></i>
+                        <i class="fas fa-star"></i>
+                        <i class="fas fa-star-half-alt"></i>
+                        <i class="far fa-star"></i>
+                    </div>
+                </div>
+                <div class="filter-option flex justify-between items-center p-4 border border-gray-200 rounded-xl hover:border-primary cursor-pointer" data-rating="0">
+                    <span class="font-medium">不限制</span>
+                    <span class="text-gray-400">任何評分</span>
+                </div>
+            </div>
+            
+            <div class="flex space-x-3">
+                <button onclick="app.closeRatingModal()" class="flex-1 py-3 border border-gray-300 rounded-xl font-medium text-gray-700 hover:bg-gray-50">
+                    取消
+                </button>
+                <button onclick="app.closeRatingModal()" class="flex-1 py-3 bg-primary text-white rounded-xl font-medium hover:bg-red-500">
+                    確認
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 餐廳詳情卡片 -->
+    <div id="restaurantCard" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden modal-backdrop">
+        <div class="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl slide-up modal-content">
+            <div class="p-6">
+                <div class="w-12 h-1 bg-gray-300 rounded-full mx-auto mb-4"></div>
+                
+                <!-- 餐廳圖片 -->
+                <img id="restaurantImage" src="https://via.placeholder.com/400x200/FF6B6B/FFFFFF?text=餐廳照片" alt="餐廳" class="w-full h-48 object-cover rounded-xl mb-4">
+                
+                <!-- 餐廳資訊 -->
+                <div class="mb-4">
+                    <h3 id="restaurantName" class="text-2xl font-bold text-gray-800 mb-2">阿明牛肉麵</h3>
+                    <div class="flex items-center space-x-4 text-sm text-gray-600 mb-3">
+                        <div class="flex items-center">
+                            <i class="fas fa-star text-warning mr-1"></i>
+                            <span id="restaurantRating">4.5</span>
+                            <span class="ml-1 restaurant-reviews">(128 評論)</span>
+                        </div>
+                        <div class="flex items-center">
+                            <i class="fas fa-dollar-sign text-success mr-1"></i>
+                            <span id="restaurantPrice">$150-300</span>
+                        </div>
+                        <div class="flex items-center">
+                            <i class="fas fa-map-marker-alt text-primary mr-1"></i>
+                            <span id="restaurantDistance">0.2km</span>
+                        </div>
+                    </div>
+                    
+                    <!-- 標籤 -->
+                    <div class="flex flex-wrap gap-2 mb-4">
+                        <span class="px-3 py-1 bg-success text-white text-xs rounded-full">營業中</span>
+                        <span class="px-3 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">台式料理</span>
+                        <span class="px-3 py-1 bg-purple-100 text-purple-800 text-xs rounded-full">可外帶</span>
+                    </div>
+                    
+                    <!-- 地址和電話 -->
+                    <div class="space-y-2 text-sm text-gray-600">
+                        <div class="flex items-center">
+                            <i class="fas fa-map-marker-alt w-4 mr-2"></i>
+                            <span class="restaurant-address">台北市大安區忠孝東路四段123號</span>
+                        </div>
+                        <div class="flex items-center">
+                            <i class="fas fa-phone w-4 mr-2"></i>
+                            <span class="restaurant-phone">02-2345-6789</span>
+                        </div>
+                        <div class="flex items-center">
+                            <i class="fas fa-clock w-4 mr-2"></i>
+                            <span class="restaurant-hours">11:00 - 21:00</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 操作按鈕 -->
+                <div class="flex space-x-3">
+                    <button onclick="app.closeRestaurantCard()" class="flex-1 py-3 border border-gray-300 rounded-xl font-medium text-gray-700 hover:bg-gray-50">
+                        關閉
+                    </button>
+                    <button class="flex-1 py-3 bg-primary text-white rounded-xl font-medium hover:bg-red-500 flex items-center justify-center space-x-2">
+                        <i class="fas fa-directions"></i>
+                        <span>導航</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 隨機推薦結果 -->
+    <div id="randomModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden modal-backdrop">
+        <div class="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl slide-up modal-content">
+            <div class="p-6 text-center">
+                <div class="w-12 h-1 bg-gray-300 rounded-full mx-auto mb-6"></div>
+                
+                <div class="mb-6">
+                    <div class="w-20 h-20 bg-warning rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-dice text-white text-2xl"></i>
+                    </div>
+                    <h3 class="text-2xl font-bold text-gray-800 mb-2">今晚就吃這家！</h3>
+                    <p class="text-gray-600">為你隨機推薦附近的美食</p>
+                </div>
+                
+                <!-- 推薦餐廳 -->
+                <div class="bg-gray-50 rounded-2xl p-6 mb-6">
+                    <img src="https://via.placeholder.com/120x120/4ECDC4/FFFFFF?text=🍜" alt="推薦餐廳" class="random-restaurant-image w-24 h-24 rounded-xl mx-auto mb-4 object-cover">
+                    <h4 class="random-restaurant-name text-xl font-bold text-gray-800 mb-2">義式披薩屋</h4>
+                    <div class="flex items-center justify-center space-x-4 text-sm text-gray-600 mb-3">
+                        <div class="flex items-center">
+                            <i class="fas fa-star text-warning mr-1"></i>
+                            <span class="random-restaurant-rating">4.2</span>
+                        </div>
+                        <span>•</span>
+                        <span class="random-restaurant-price">$200-500</span>
+                        <span>•</span>
+                        <span class="random-restaurant-distance">0.5km</span>
+                    </div>
+                    <div class="flex justify-center space-x-2">
+                        <span class="px-3 py-1 bg-success text-white text-xs rounded-full">營業中</span>
+                        <span class="px-3 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">義式料理</span>
+                    </div>
+                </div>
+                
+                <div class="flex space-x-3">
+                    <button onclick="app.showRandomRestaurant()" class="flex-1 py-3 border border-gray-300 rounded-xl font-medium text-gray-700 hover:bg-gray-50">
+                        再選一次
+                    </button>
+                    <button onclick="app.closeRandomModal()" class="flex-1 py-3 bg-primary text-white rounded-xl font-medium hover:bg-red-500">
+                        就決定是你了！
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="app.js"></script>
+    <!-- Google Maps API -->
+    <script async defer src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&callback=initMap&libraries=places"></script>
+</body>
+</html>

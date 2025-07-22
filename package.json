@@ -1,0 +1,39 @@
+{
+  "name": "gogoeat",
+  "version": "1.0.0",
+  "description": "🍽️ 基於地理位置的美食搜尋平台，幫助用戶快速找到附近符合預算和喜好的餐廳",
+  "main": "index.html",
+  "scripts": {
+    "start": "python -m http.server 8000",
+    "dev": "npx http-server -p 8080 -o",
+    "build": "echo 'No build process needed for vanilla JS project'",
+    "deploy": "bash deploy.sh",
+    "test": "echo 'No tests specified yet'"
+  },
+  "keywords": [
+    "food",
+    "map",
+    "restaurant",
+    "location",
+    "google-maps",
+    "javascript",
+    "responsive",
+    "pwa"
+  ],
+  "author": "GOGOEAT Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-username/gogoeat.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-username/gogoeat/issues"
+  },
+  "homepage": "https://your-username.github.io/gogoeat",
+  "devDependencies": {
+    "http-server": "^14.1.1"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}
