@@ -1,39 +1,40 @@
 {
-  "name": "gogoeat",
+  "name": "gogoeat-react",
   "version": "1.0.0",
-  "description": "🍽️ 基於地理位置的美食搜尋平台，幫助用戶快速找到附近符合預算和喜好的餐廳",
-  "main": "index.html",
+  "description": "🍽️ 基於地理位置的美食搜尋平台 - React版本",
+  "private": true,
+  "dependencies": {
+    "@googlemaps/react-wrapper": "^1.1.35",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
   "scripts": {
-    "start": "python -m http.server 8000",
-    "dev": "npx http-server -p 8080 -o",
-    "build": "echo 'No build process needed for vanilla JS project'",
-    "deploy": "bash deploy.sh",
-    "test": "echo 'No tests specified yet'"
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "deploy": "npm run build && gh-pages -d dist"
   },
-  "keywords": [
-    "food",
-    "map",
-    "restaurant",
-    "location",
-    "google-maps",
-    "javascript",
-    "responsive",
-    "pwa"
-  ],
-  "author": "GOGOEAT Team",
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/your-username/gogoeat.git"
-  },
-  "bugs": {
-    "url": "https://github.com/your-username/gogoeat/issues"
-  },
-  "homepage": "https://your-username.github.io/gogoeat",
   "devDependencies": {
-    "http-server": "^14.1.1"
+    "@types/react": "^18.2.15",
+    "@types/react-dom": "^18.2.7",
+    "@vitejs/plugin-react": "^4.0.3",
+    "autoprefixer": "^10.4.14",
+    "gh-pages": "^6.0.0",
+    "postcss": "^8.4.24",
+    "tailwindcss": "^3.3.0",
+    "vite": "^4.4.5"
   },
-  "engines": {
-    "node": ">=14.0.0"
-  }
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "homepage": "https://your-username.github.io/gogoeat-react"
 }

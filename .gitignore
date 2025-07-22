@@ -11,6 +11,10 @@ yarn-error.log*
 .env.test.local
 .env.production.local
 
+# 建置輸出
+build/
+dist/
+
 # 編輯器配置
 .vscode/
 .idea/
@@ -35,18 +39,6 @@ logs
 tmp/
 temp/
 
-# 構建輸出
-dist/
-build/
-
-# 備份文件
-*.bak
-*.backup
-
-# API 金鑰（如果單獨存放）
-api-keys.js
-secrets.js
-
 # 測試覆蓋率報告
 coverage/
 
@@ -54,4 +46,11 @@ coverage/
 .netlify/
 .vercel/
 
-/trash
+# React相關
+.eslintcache
+
+# 備份文件
+*.bak
+*.backup
+
+trash/
