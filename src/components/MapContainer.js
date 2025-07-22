@@ -249,6 +249,33 @@ const MapContainer = () => {
     }));
   };
 
+  // 搜尋提交處理
+  const handleSearchSubmit = (query) => {
+    if (!query.trim()) return;
+    
+    const filteredRestaurants = restaurantData.filter(restaurant => {
+      const searchTerm = query.toLowerCase();
+      return restaurant.name.toLowerCase().includes(searchTerm) || 
+             restaurant.category.toLowerCase().includes(searchTerm) ||
+             restaurant.description.toLowerCase().includes(searchTerm);
+    });
+
+    if (filteredRestaurants.length > 0) {
+      // 將地圖中心移動到第一個匹配的餐廳
+      const firstResult = filteredRestaurants[0];
+      map.setCenter({ lat: firstResult.lat, lng: firstResult.lng });
+      map.setZoom(16);
+      
+      // 如果只有一個結果，直接顯示餐廳詳情
+      if (filteredRestaurants.length === 1) {
+        setSelectedRestaurant(firstResult);
+        openModal('restaurant');
+      }
+    } else {
+      alert('找不到符合條件的餐廳，請嘗試其他關鍵字');
+    }
+  };
+
   return (
     <div className="map-container">
       {/* Google Maps */}
@@ -258,6 +285,7 @@ const MapContainer = () => {
       <SearchBar
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
+        onSearchSubmit={handleSearchSubmit}
         filters={filters}
         onBudgetClick={() => openModal('budget')}
         onRatingClick={() => openModal('rating')}

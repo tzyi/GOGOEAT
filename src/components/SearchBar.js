@@ -3,12 +3,22 @@ import React from 'react';
 const SearchBar = ({ 
   searchQuery, 
   onSearchChange, 
+  onSearchSubmit,
   filters, 
   onBudgetClick, 
   onRatingClick, 
   onToggleFilter, 
   onRandomClick 
 }) => {
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      onSearchSubmit && onSearchSubmit(searchQuery);
+    }
+  };
+
+  const handleSearchClick = () => {
+    onSearchSubmit && onSearchSubmit(searchQuery);
+  };
   return (
     <div className="absolute top-4 left-4 z-10">
       <div className="floating-card rounded-2xl p-2 sm:p-3">
@@ -41,9 +51,16 @@ const SearchBar = ({
             placeholder="搜尋餐廳、美食..." 
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="w-full pl-10 sm:pl-12 pr-4 py-1.5 sm:py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent search-input"
+            onKeyPress={handleKeyPress}
+            className="w-full pl-10 sm:pl-12 pr-12 py-1.5 sm:py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent search-input"
           />
           <i className="fas fa-search absolute left-3 sm:left-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm"></i>
+          <button 
+            onClick={handleSearchClick}
+            className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-primary text-white px-3 py-1 rounded-lg hover:bg-red-500 transition-colors text-sm"
+          >
+            搜尋
+          </button>
         </div>
         
         {/* 篩選器 */}
