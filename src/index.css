@@ -37,8 +37,8 @@
 
   .location-btn {
     position: absolute;
-    bottom: 2rem;
-    right: 1rem;
+    bottom: 20px;
+    right: 60px;
     z-index: 10;
   }
 

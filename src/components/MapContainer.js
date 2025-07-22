@@ -268,7 +268,7 @@ const MapContainer = () => {
       {/* 定位按鈕 */}
       <button 
         onClick={handleLocationClick}
-        className="location-btn w-12 h-12 bg-white rounded-full shadow-lg flex items-center justify-center hover:bg-gray-50 transition-colors"
+        className="location-btn w-11 h-11 bg-white rounded-full shadow-lg flex items-center justify-center hover:bg-gray-50 transition-colors"
       >
         <i className="fas fa-location-arrow text-primary"></i>
       </button>
