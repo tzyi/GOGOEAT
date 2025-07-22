@@ -6,6 +6,18 @@ import RatingModal from './RatingModal';
 import RandomModal from './RandomModal';
 import { calculateDistance } from '../utils/mapUtils';
 
+// 計算兩點間距離（米）
+const calculateDistanceInMeters = (lat1, lng1, lat2, lng2) => {
+  const R = 6371000; // 地球半徑（米）
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLng/2) * Math.sin(dLng/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+};
+
 const MapContainer = () => {
   const mapRef = useRef(null);
   const [map, setMap] = useState(null);
@@ -32,7 +44,7 @@ const MapContainer = () => {
   // 等待Google Maps API載入
   useEffect(() => {
     const checkGoogleMaps = () => {
-      if (window.google && window.google.maps && window.google.maps.places) {
+      if (window.google && window.google.maps) {
         initializeMap();
       } else {
         setTimeout(checkGoogleMaps, 100);
@@ -70,9 +82,17 @@ const MapContainer = () => {
 
         setMap(mapInstance);
         
-        // 初始化 Places Service
-        const service = new window.google.maps.places.PlacesService(mapInstance);
-        setPlacesService(service);
+        // 初始化 Places Service (如果可用)
+        if (window.google.maps.places) {
+          const service = new window.google.maps.places.PlacesService(mapInstance);
+          setPlacesService(service);
+        }
+        
+        // 初始化 Places Autocomplete Service
+        if (window.google.maps.places && window.google.maps.places.AutocompleteService) {
+          console.log('Places Autocomplete Service 可用');
+        }
+        
         getCurrentLocation(mapInstance, defaultLocation);
       } catch (error) {
         console.error('Failed to initialize Google Maps:', error);
@@ -386,8 +406,8 @@ const MapContainer = () => {
     }));
   };
 
-  // 搜尋提交處理
-  const handleSearchSubmit = async (query) => {
+  // 搜尋提交處理 - 優先使用 Places API textSearch，降級到 Geocoding API
+  const handleSearchSubmit = (query) => {
     console.log('搜尋開始:', query);
     
     if (!query.trim()) {
@@ -395,50 +415,279 @@ const MapContainer = () => {
       return;
     }
     
-    if (!userLocation) {
-      console.error('User location not available');
-      alert('無法取得您的位置，請確認定位權限');
+    if (!map) {
+      alert('地圖尚未載入完成，請稍後再試');
       return;
     }
 
-    console.log('準備搜尋:', { query, userLocation });
+    // 取得當前地圖中心和範圍
+    const center = map.getCenter();
+    const bounds = map.getBounds();
     
-    // 先嘗試使用 Geocoding API 進行地址搜尋
-    try {
-      await searchWithGeocoding(query);
-    } catch (error) {
-      console.error('Geocoding 搜尋失敗:', error);
+    console.log('當前地圖中心:', { lat: center.lat(), lng: center.lng() });
+    console.log('當前地圖範圍:', bounds ? bounds.toString() : '無');
+
+    // 優先使用 Places API textSearch 來搜尋店家
+    if (placesService && window.google.maps.places) {
+      console.log('使用 Places API textSearch 搜尋:', query);
       
-      // 如果 Geocoding 失敗且 Places Service 可用，則嘗試 Places API
-      if (placesService) {
-        console.log('嘗試使用 Places API');
-        searchWithPlaces(query);
-      } else {
-        alert('搜尋服務暫時無法使用，請稍後再試');
+      try {
+        const request = {
+          query: query,
+          location: center,
+          radius: 5000, // 5公里範圍
+          fields: ['name', 'geometry', 'place_id', 'rating', 'price_level', 'opening_hours', 'formatted_address', 'vicinity', 'photos', 'types']
+        };
+        
+        placesService.textSearch(request, (results, status) => {
+          console.log('Places textSearch 結果:', { results, status, count: results?.length });
+          
+          if (status === window.google.maps.places.PlacesServiceStatus.OK && results && results.length > 0) {
+            handlePlacesSearchResults(results, query, center);
+          } else {
+            console.log('Places API 搜尋失敗或無結果，狀態:', status, '降級到 Geocoding API');
+            handleGeocodingSearch(query, bounds, center);
+          }
+        });
+      } catch (error) {
+        console.error('Places API textSearch 錯誤:', error);
+        console.log('降級到 Geocoding API');
+        handleGeocodingSearch(query, bounds, center);
       }
+    } else {
+      console.log('Places API 不可用，使用 Geocoding API');
+      handleGeocodingSearch(query, bounds, center);
     }
   };
 
-  // 使用 Geocoding API 搜尋
-  const searchWithGeocoding = (query) => {
-    return new Promise((resolve, reject) => {
-      const geocoder = new window.google.maps.Geocoder();
-      const searchAddress = `${query} restaurant near ${userLocation.lat},${userLocation.lng}`;
+  // 處理 Places API 搜尋結果
+  const handlePlacesSearchResults = (results, query, center) => {
+    try {
+      console.log('處理 Places API 搜尋結果');
       
-      console.log('Geocoding 搜尋:', searchAddress);
+      // 清除現有標記
+      markers.forEach(marker => {
+        try {
+          marker.setMap(null);
+        } catch (e) {
+          console.warn('清除標記失敗:', e);
+        }
+      });
       
-      geocoder.geocode({
-        address: searchAddress,
-        componentRestrictions: { country: 'TW' }
-      }, (results, status) => {
-        console.log('Geocoding 結果:', { results, status });
+      const newMarkers = [];
+      const searchResults = [];
+      
+      // 篩選在合理範圍內的結果
+      const centerLat = center.lat();
+      const centerLng = center.lng();
+      const maxDistance = 10000; // 10公里內
+      
+      const nearbyResults = results.filter(result => {
+        try {
+          if (!result.geometry || !result.geometry.location) {
+            console.warn('結果缺少位置資訊:', result);
+            return false;
+          }
+          const lat = result.geometry.location.lat();
+          const lng = result.geometry.location.lng();
+          const distance = calculateDistanceInMeters(centerLat, centerLng, lat, lng);
+          return distance <= maxDistance;
+        } catch (e) {
+          console.warn('處理結果時出錯:', e, result);
+          return false;
+        }
+      }).sort((a, b) => {
+        try {
+          const distA = calculateDistanceInMeters(centerLat, centerLng, 
+            a.geometry.location.lat(), a.geometry.location.lng());
+          const distB = calculateDistanceInMeters(centerLat, centerLng, 
+            b.geometry.location.lat(), b.geometry.location.lng());
+          return distA - distB;
+        } catch (e) {
+          console.warn('排序時出錯:', e);
+          return 0;
+        }
+      });
+      
+      console.log('附近的 Places 結果:', nearbyResults.length);
+      
+      nearbyResults.slice(0, 10).forEach((place, index) => {
+        try {
+          const location = place.geometry.location;
+          
+          const restaurantData = {
+            id: place.place_id || `places_${index}`,
+            name: place.name || query,
+            lat: location.lat(),
+            lng: location.lng(),
+            rating: place.rating || 0,
+            priceLevel: place.price_level || 0,
+            isOpen: place.opening_hours?.open_now ?? true,
+            address: place.formatted_address || place.vicinity || '',
+            placeId: place.place_id,
+            photos: place.photos || [],
+            types: place.types || ['restaurant']
+          };
+      
+          searchResults.push(restaurantData);
+          
+          // 創建標記
+          const marker = new window.google.maps.Marker({
+            position: location,
+            map: map,
+            title: restaurantData.name,
+            icon: {
+              url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+                <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="16" cy="16" r="14" fill="#27ae60" stroke="white" stroke-width="2"/>
+                  <path d="M12 10h2v12h-2zm4-2h2v14h-2zm4 4h2v10h-2z" fill="white"/>
+                </svg>
+              `),
+              scaledSize: new window.google.maps.Size(32, 32)
+            }
+          });
+          
+          // 創建 InfoWindow
+          const infoWindow = new window.google.maps.InfoWindow({
+            content: `
+              <div style="padding: 8px;">
+                <strong>${restaurantData.name}</strong><br>
+                <span style="color: #666;">${restaurantData.address}</span><br>
+                <span style="color: #27ae60;">🏪 找到店家</span>
+                ${restaurantData.rating > 0 ? `<br><span style="color: #f39c12;">⭐ ${restaurantData.rating}</span>` : ''}
+              </div>
+            `
+          });
+          
+          // 點擊標記顯示 InfoWindow
+          marker.addListener('click', () => {
+            infoWindow.open(map, marker);
+            
+            // 獲取詳細資訊
+            if (restaurantData.placeId) {
+              getPlaceDetails(restaurantData.placeId, (details) => {
+                setSelectedRestaurant({
+                  ...restaurantData,
+                  ...details
+                });
+                openModal('restaurant');
+              });
+            } else {
+              setSelectedRestaurant(restaurantData);
+              openModal('restaurant');
+            }
+          });
+          
+          newMarkers.push(marker);
+        } catch (e) {
+          console.error('創建標記時出錯:', e, place);
+        }
+      });
+      
+      setMarkers(newMarkers);
+      setRestaurants(searchResults);
+      
+      console.log(`已在地圖上顯示 ${newMarkers.length} 個店家搜尋結果`);
+      
+      // 調整地圖視窗到包含所有結果
+      if (searchResults.length > 0) {
+        try {
+          const resultBounds = new window.google.maps.LatLngBounds();
+          searchResults.forEach(result => {
+            resultBounds.extend({ lat: result.lat, lng: result.lng });
+          });
+          map.fitBounds(resultBounds);
+        } catch (e) {
+          console.warn('調整地圖視窗失敗:', e);
+        }
+      }
+    } catch (error) {
+      console.error('處理 Places API 搜尋結果時出錯:', error);
+      console.log('降級到 Geocoding API');
+      handleGeocodingSearch(query, map.getBounds(), map.getCenter());
+    }
+  };
+
+  // Geocoding API 搜尋（降級選項）
+  const handleGeocodingSearch = (query, bounds, center) => {
+    const geocoder = new window.google.maps.Geocoder();
+    
+    // 構建搜尋地址 - 包含當前區域資訊
+    const searchQuery = `${query} near ${center.lat()},${center.lng()}`;
+    
+    console.log('Geocoding 搜尋:', searchQuery);
+    
+    geocoder.geocode({
+      address: searchQuery,
+      componentRestrictions: { country: 'TW' },
+      // 限制搜尋在當前地圖範圍內
+      bounds: bounds
+    }, (results, status) => {
+      console.log('Geocoding 搜尋結果:', { results, status, count: results?.length });
+      
+      if (status === 'OK' && results.length > 0) {
+        console.log('搜尋成功，找到', results.length, '個結果');
         
-        if (status === 'OK' && results.length > 0) {
-          const searchResults = results.slice(0, 10).map((result, index) => ({
-            id: result.place_id || index,
-            name: result.formatted_address.split(',')[0] || query,
-            lat: result.geometry.location.lat(),
-            lng: result.geometry.location.lng(),
+        // 清除現有標記
+        markers.forEach(marker => marker.setMap(null));
+        
+        const newMarkers = [];
+        const searchResults = [];
+        
+        // 篩選在當前地圖範圍內的結果
+        const filteredResults = results.filter(result => {
+          const location = result.geometry.location;
+          return bounds.contains(location);
+        });
+        
+        console.log('範圍內的結果:', filteredResults.length);
+        
+        // 如果範圍內沒有結果，使用距離排序後的最近結果，但限制在合理範圍內
+        let resultsToUse;
+        if (filteredResults.length > 0) {
+          resultsToUse = filteredResults;
+        } else {
+          // 計算與地圖中心的距離，只使用合理範圍內的結果
+          const centerLat = center.lat();
+          const centerLng = center.lng();
+          const maxDistance = 10000; // 10公里內
+          
+          const nearbyResults = results.filter(result => {
+            const lat = result.geometry.location.lat();
+            const lng = result.geometry.location.lng();
+            const distance = calculateDistanceInMeters(centerLat, centerLng, lat, lng);
+            return distance <= maxDistance;
+          }).sort((a, b) => {
+            const distA = calculateDistanceInMeters(centerLat, centerLng, 
+              a.geometry.location.lat(), a.geometry.location.lng());
+            const distB = calculateDistanceInMeters(centerLat, centerLng, 
+              b.geometry.location.lat(), b.geometry.location.lng());
+            return distA - distB;
+          });
+          
+          resultsToUse = nearbyResults.slice(0, 5);
+          console.log('使用附近結果:', resultsToUse.length, '個');
+        }
+        
+        resultsToUse.forEach((result, index) => {
+          const location = result.geometry.location;
+          
+          // 從地址中提取可能的店名
+          let name = query; // 預設使用搜尋關鍵字
+          const addressParts = result.formatted_address.split(',');
+          if (addressParts.length > 0) {
+            // 嘗試從地址第一部分提取店名
+            const firstPart = addressParts[0].trim();
+            if (firstPart.length > 0 && firstPart !== result.formatted_address) {
+              name = firstPart;
+            }
+          }
+          
+          const restaurantData = {
+            id: result.place_id || `search_${index}`,
+            name: name,
+            lat: location.lat(),
+            lng: location.lng(),
             rating: 0,
             priceLevel: 0,
             isOpen: true,
@@ -446,71 +695,172 @@ const MapContainer = () => {
             placeId: result.place_id,
             photos: [],
             types: result.types || ['restaurant']
-          }));
+          };
           
-          console.log('Geocoding 搜尋成功，找到', searchResults.length, '個結果');
-          setRestaurants(searchResults);
-          addRestaurantMarkers(searchResults);
+          searchResults.push(restaurantData);
           
-          if (searchResults.length > 0) {
-            const firstResult = searchResults[0];
-            map.setCenter({ lat: firstResult.lat, lng: firstResult.lng });
-            map.setZoom(16);
-          }
+          // 創建標記
+          const marker = new window.google.maps.Marker({
+            position: location,
+            map: map,
+            title: restaurantData.name,
+            icon: {
+              url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+                <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="16" cy="16" r="14" fill="#FF6B6B" stroke="white" stroke-width="2"/>
+                  <path d="M12 10h2v12h-2zm4-2h2v14h-2zm4 4h2v10h-2z" fill="white"/>
+                </svg>
+              `),
+              scaledSize: new window.google.maps.Size(32, 32)
+            }
+          });
           
-          resolve(searchResults);
-        } else {
-          reject(new Error(`Geocoding failed: ${status}`));
-        }
-      });
-    });
-  };
-
-  // 使用 Places API 搜尋（備用方法）
-  const searchWithPlaces = (query) => {
-    const request = {
-      location: userLocation,
-      radius: 5000,
-      keyword: query,
-      type: ['restaurant']
-    };
-
-    console.log('Places API 搜尋請求:', request);
-
-    placesService.nearbySearch(request, (results, status) => {
-      console.log('Places API 搜尋結果:', { results, status });
-      
-      if (status === window.google.maps.places.PlacesServiceStatus.OK) {
-        console.log('Places API 搜尋成功，找到', results.length, '個結果');
+          // 創建 InfoWindow
+          const infoWindow = new window.google.maps.InfoWindow({
+            content: `
+              <div style="padding: 8px;">
+                <strong>${restaurantData.name}</strong><br>
+                <span style="color: #666;">${restaurantData.address}</span><br>
+                <span style="color: #3498db;">📍 搜尋結果</span>
+              </div>
+            `
+          });
+          
+          // 點擊標記顯示 InfoWindow
+          marker.addListener('click', () => {
+            infoWindow.open(map, marker);
+            setSelectedRestaurant(restaurantData);
+            openModal('restaurant');
+          });
+          
+          newMarkers.push(marker);
+        });
         
-        const searchResults = results.map((place, index) => ({
-          id: place.place_id || index,
-          name: place.name,
-          lat: place.geometry.location.lat(),
-          lng: place.geometry.location.lng(),
-          rating: place.rating || 0,
-          priceLevel: place.price_level || 0,
-          isOpen: place.opening_hours?.open_now ?? true,
-          address: place.formatted_address || place.vicinity,
-          placeId: place.place_id,
-          photos: place.photos || [],
-          types: place.types || []
-        }));
-        
+        setMarkers(newMarkers);
         setRestaurants(searchResults);
-        addRestaurantMarkers(searchResults);
         
-        if (searchResults.length > 0) {
-          const firstResult = searchResults[0];
-          map.setCenter({ lat: firstResult.lat, lng: firstResult.lng });
-          map.setZoom(16);
+        console.log(`已在地圖上顯示 ${newMarkers.length} 個搜尋結果標記`);
+        
+        // 如果有篩選後的結果，調整地圖視窗
+        if (filteredResults.length > 0) {
+          // 創建包含所有結果的範圍
+          const resultBounds = new window.google.maps.LatLngBounds();
+          filteredResults.forEach(result => {
+            resultBounds.extend(result.geometry.location);
+          });
+          map.fitBounds(resultBounds);
         }
+        
       } else {
-        console.error('Places API 搜尋失敗:', status);
-        alert('找不到符合條件的餐廳，請嘗試其他關鍵字');
+        console.error('Geocoding 搜尋失敗:', status);
+        
+        // 如果沒有結果，嘗試更廣泛的搜尋
+        if (status === 'ZERO_RESULTS') {
+          console.log('嘗試更廣泛的搜尋');
+          
+          geocoder.geocode({
+            address: `${query} 台灣`,
+            componentRestrictions: { country: 'TW' }
+          }, (broadResults, broadStatus) => {
+            if (broadStatus === 'OK' && broadResults.length > 0) {
+              console.log('廣泛搜尋成功，找到', broadResults.length, '個結果');
+              
+              // 處理廣泛搜尋的結果
+              handleBroadSearchResults(broadResults.slice(0, 10), query);
+            } else {
+              alert('找不到符合條件的地點，請嘗試其他關鍵字');
+            }
+          });
+        } else {
+          alert(`搜尋失敗: ${status}`);
+        }
       }
     });
   };
+
+  // 處理廣泛搜尋結果
+  const handleBroadSearchResults = (results, query) => {
+    // 清除現有標記
+    markers.forEach(marker => marker.setMap(null));
+    
+    const newMarkers = [];
+    const searchResults = [];
+    
+    results.forEach((result, index) => {
+      const location = result.geometry.location;
+      
+      let name = query;
+      const addressParts = result.formatted_address.split(',');
+      if (addressParts.length > 0) {
+        const firstPart = addressParts[0].trim();
+        if (firstPart.length > 0) {
+          name = firstPart;
+        }
+      }
+      
+      const restaurantData = {
+        id: result.place_id || `broad_${index}`,
+        name: name,
+        lat: location.lat(),
+        lng: location.lng(),
+        rating: 0,
+        priceLevel: 0,
+        isOpen: true,
+        address: result.formatted_address,
+        placeId: result.place_id,
+        photos: [],
+        types: result.types || ['restaurant']
+      };
+      
+      searchResults.push(restaurantData);
+      
+      const marker = new window.google.maps.Marker({
+        position: location,
+        map: map,
+        title: restaurantData.name,
+        icon: {
+          url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+            <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="16" cy="16" r="14" fill="#3498db" stroke="white" stroke-width="2"/>
+              <path d="M12 10h2v12h-2zm4-2h2v14h-2zm4 4h2v10h-2z" fill="white"/>
+            </svg>
+          `),
+          scaledSize: new window.google.maps.Size(32, 32)
+        }
+      });
+      
+      const infoWindow = new window.google.maps.InfoWindow({
+        content: `
+          <div style="padding: 8px;">
+            <strong>${restaurantData.name}</strong><br>
+            <span style="color: #666;">${restaurantData.address}</span><br>
+            <span style="color: #e67e22;">🔍 擴大搜尋結果</span>
+          </div>
+        `
+      });
+      
+      marker.addListener('click', () => {
+        infoWindow.open(map, marker);
+        setSelectedRestaurant(restaurantData);
+        openModal('restaurant');
+      });
+      
+      newMarkers.push(marker);
+    });
+    
+    setMarkers(newMarkers);
+    setRestaurants(searchResults);
+    
+    // 調整地圖視窗到包含所有結果
+    if (results.length > 0) {
+      const bounds = new window.google.maps.LatLngBounds();
+      results.forEach(result => {
+        bounds.extend(result.geometry.location);
+      });
+      map.fitBounds(bounds);
+    }
+  };
+
 
 
   return (

@@ -2,6 +2,9 @@
 
 基於React和Vite的現代化美食地圖應用，使用Google Maps API幫助用戶快速找到附近符合預算和喜好的餐廳。
 
+![](./img/map.png)
+
+
 ## ✨ 功能特色
 
 - 🗺️ **互動地圖**：Google Maps整合，視覺化餐廳位置
