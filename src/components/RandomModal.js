@@ -17,7 +17,15 @@ const RandomModal = ({ restaurant, userLocation, onClose, onTryAgain }) => {
         className="w-full bg-white rounded-t-3xl animate-slide-up modal-content"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="p-6 text-center">
+        <div className="p-6 text-center relative">
+          {/* 關閉按鈕 */}
+          <button 
+            onClick={onClose}
+            className="absolute top-4 right-4 w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center transition-colors"
+          >
+            <i className="fas fa-times text-gray-500"></i>
+          </button>
+          
           <div className="w-12 h-1 bg-gray-300 rounded-full mx-auto mb-6"></div>
           
           <div className="mb-6">
@@ -30,14 +38,11 @@ const RandomModal = ({ restaurant, userLocation, onClose, onTryAgain }) => {
           
           {/* 推薦餐廳 */}
           <div className="bg-gray-50 rounded-2xl p-6 mb-6">
-            <img 
-              src={restaurant.image} 
-              alt={restaurant.name}
-              className="w-24 h-24 rounded-xl mx-auto mb-4 object-cover"
-              onError={(e) => {
-                e.target.src = `https://via.placeholder.com/120x120/4ECDC4/FFFFFF?text=${encodeURIComponent(restaurant.name.charAt(0))}`;
-              }}
-            />
+            <div className="w-24 h-24 rounded-xl mx-auto mb-4 bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center shadow-lg">
+              <div className="text-white text-2xl font-bold">
+                {restaurant.name.charAt(0)}
+              </div>
+            </div>
             <h4 className="text-xl font-bold text-gray-800 mb-2">{restaurant.name}</h4>
             <div className="flex items-center justify-center space-x-4 text-sm text-gray-600 mb-3">
               <div className="flex items-center">
