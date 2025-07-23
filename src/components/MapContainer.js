@@ -409,57 +409,7 @@ const MapContainer = () => {
     }));
   };
 
-  // 搜尋提交處理 - 優先使用 Places API textSearch，降級到 Geocoding API
-  // const handleSearchSubmit = (query) => {
-  //   console.log('搜尋開始:', query);
-    
-  //   if (!query.trim()) {
-  //     alert('請輸入搜尋關鍵字');
-  //     return;
-  //   }
-    
-  //   if (!map) {
-  //     alert('地圖尚未載入完成，請稍後再試');
-  //     return;
-  //   }
-
-  //   // 取得當前地圖中心和範圍
-  //   const center = map.getCenter();
-  //   const bounds = map.getBounds();
-    
-  //   console.log('當前地圖中心:', { lat: center.lat(), lng: center.lng() });
-  //   console.log('當前地圖範圍:', bounds ? bounds.toString() : '無');
-
-  //   // 優先使用 Places API textSearch 來搜尋店家
-  //   if (placesService && window.google.maps.places) {
-  //     console.log('使用 Places API textSearch 搜尋:', query);
-      
-  //     try {
-  //       // 計算地圖可見範圍的半徑
-  //       const ne = bounds.getNorthEast();
-  //       const mapRadius = calculateDistanceInMeters(
-  //         center.lat(), center.lng(),
-  //         ne.lat(), ne.lng()
-  //       );
-        
-  //       // 使用較大的搜尋範圍，確保涵蓋整個可見區域
-  //       const searchRadius = Math.max(mapRadius * 1.5, 3000); // 至少3公里，或地圖範圍的1.5倍
-        
-  //       console.log('搜尋範圍:', searchRadius, '米');
-        
-  //       // 進行多輪搜尋以確保完整性
-  //       performMultipleSearches(query, center, bounds, searchRadius);
-  //     } catch (error) {
-  //       console.error('Places API textSearch 錯誤:', error);
-  //       console.log('降級到 Geocoding API');
-  //       handleGeocodingSearch(query, bounds, center);
-  //     }
-  //   } else {
-  //     console.log('Places API 不可用，使用 Geocoding API');
-  //     handleGeocodingSearch(query, bounds, center);
-  //   }
-  // };
-  
+  // 搜尋提交處理
   const handleSearchSubmit = () => {
     // 當使用者選擇建議地點時
     searchBox.addListener("places_changed", () => {
