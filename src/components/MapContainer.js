@@ -428,10 +428,6 @@ const MapContainer = () => {
     performMultipleSearches(query, center, bounds, 2000);
   };
     
-
-
-
-
   // 多輪搜尋機制
   const performMultipleSearches = (query, center, bounds, searchRadius) => {
     const allResults = [];
