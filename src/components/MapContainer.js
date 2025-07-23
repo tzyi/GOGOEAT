@@ -677,16 +677,15 @@ const MapContainer = () => {
             content: `
               <div style="
                 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                max-width: 300px;
+                max-width: 250px;
+                max-height: 350px;
                 padding: 0;
                 margin: 0;
                 border-radius: 16px;
                 overflow: hidden;
               ">
-                ${photoHTML}
-                <div style="padding: 16px;">
+                  ${photoHTML}
                   <h3 style="
-                    margin: 0 0 8px 0;
                     font-size: 18px;
                     font-weight: 600;
                     color: #2c3e50;
@@ -699,8 +698,8 @@ const MapContainer = () => {
                   <div style="
                     display: flex;
                     align-items: center;
-                    margin: 8px 0;
-                    padding: 6px 10px;
+                    margin: 3px 0;
+                    padding: 3px 5px;
                     background-color: #f8f9fa;
                     border-radius: 8px;
                     border-left: 3px solid #27ae60;
@@ -710,23 +709,25 @@ const MapContainer = () => {
                   </div>
                   
                   <div style="
-                    margin-top: 12px;
-                    padding-top: 12px;
+                    margin-top: 5px;
+                    padding-top: 5px;
                     border-top: 1px solid #eee;
                     text-align: center;
                   ">
-                    <button onclick="window.openRestaurantDetails && window.openRestaurantDetails('${restaurantData.placeId || restaurantData.id}')" style="
+                    <button onclick="window.open('${restaurantData.placeId ? `https://www.google.com/maps/place/?q=place_id:${restaurantData.placeId}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(restaurantData.name + ' ' + restaurantData.address)}`}', '_blank')" style="
                       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                       color: white;
+                      width:80px;
+                      height:30px;
                       border: none;
-                      padding: 8px 16px;
+                      padding: 5px 10px;
                       border-radius: 20px;
                       font-size: 13px;
                       font-weight: 500;
                       cursor: pointer;
                       transition: transform 0.2s;
                     " onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
-                      查看詳細資訊
+                      查看詳情
                     </button>
                   </div>
                 </div>
@@ -948,7 +949,7 @@ const MapContainer = () => {
                   border-top: 1px solid #eee;
                   text-align: center;
                 ">
-                  <button onclick="window.openRestaurantDetails && window.openRestaurantDetails('${restaurantData.placeId || restaurantData.id}')" style="
+                  <button onclick="window.open('${restaurantData.placeId ? `https://www.google.com/maps/place/?q=place_id:${restaurantData.placeId}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(restaurantData.name + ' ' + restaurantData.address)}`}', '_blank')" style="
                     background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
                     color: white;
                     border: none;
@@ -1121,7 +1122,7 @@ const MapContainer = () => {
               border-top: 1px solid #eee;
               text-align: center;
             ">
-              <button onclick="window.openRestaurantDetails && window.openRestaurantDetails('${restaurantData.placeId || restaurantData.id}')" style="
+              <button onclick="window.open('${restaurantData.placeId ? `https://www.google.com/maps/place/?q=place_id:${restaurantData.placeId}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(restaurantData.name + ' ' + restaurantData.address)}`}', '_blank')" style="
                 background: linear-gradient(135deg, #e67e22 0%, #d35400 100%);
                 color: white;
                 border: none;
