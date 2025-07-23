@@ -432,23 +432,20 @@ const MapContainer = () => {
       console.log('使用 Places API textSearch 搜尋:', query);
       
       try {
-        const request = {
-          query: query,
-          location: center,
-          radius: 5000, // 5公里範圍
-          fields: ['name', 'geometry', 'place_id', 'rating', 'price_level', 'opening_hours', 'formatted_address', 'vicinity', 'photos', 'types']
-        };
+        // 計算地圖可見範圍的半徑
+        const ne = bounds.getNorthEast();
+        const mapRadius = calculateDistanceInMeters(
+          center.lat(), center.lng(),
+          ne.lat(), ne.lng()
+        );
         
-        placesService.textSearch(request, (results, status) => {
-          console.log('Places textSearch 結果:', { results, status, count: results?.length });
-          
-          if (status === window.google.maps.places.PlacesServiceStatus.OK && results && results.length > 0) {
-            handlePlacesSearchResults(results, query, center);
-          } else {
-            console.log('Places API 搜尋失敗或無結果，狀態:', status, '降級到 Geocoding API');
-            handleGeocodingSearch(query, bounds, center);
-          }
-        });
+        // 使用較大的搜尋範圍，確保涵蓋整個可見區域
+        const searchRadius = Math.max(mapRadius * 1.5, 3000); // 至少3公里，或地圖範圍的1.5倍
+        
+        console.log('搜尋範圍:', searchRadius, '米');
+        
+        // 進行多輪搜尋以確保完整性
+        performMultipleSearches(query, center, bounds, searchRadius);
       } catch (error) {
         console.error('Places API textSearch 錯誤:', error);
         console.log('降級到 Geocoding API');
@@ -458,6 +455,72 @@ const MapContainer = () => {
       console.log('Places API 不可用，使用 Geocoding API');
       handleGeocodingSearch(query, bounds, center);
     }
+  };
+
+  // 多輪搜尋機制
+  const performMultipleSearches = (query, center, bounds, searchRadius) => {
+    const allResults = [];
+    let searchesCompleted = 0;
+    const totalSearches = 3;
+    
+    // 搜尋變體：原始查詢、加上地區、加上關鍵字
+    const searchQueries = [
+      query,
+      `${query} 台北`,
+      `${query} restaurant`
+    ];
+    
+    const handleSearchComplete = () => {
+      searchesCompleted++;
+      if (searchesCompleted === totalSearches) {
+        console.log('所有搜尋完成，合併結果:', allResults.length);
+        
+        // 去重：根據 place_id 去重
+        const uniqueResults = [];
+        const seenIds = new Set();
+        
+        allResults.forEach(result => {
+          const id = result.place_id || `${result.name}_${result.geometry.location.lat()}_${result.geometry.location.lng()}`;
+          if (!seenIds.has(id)) {
+            seenIds.add(id);
+            uniqueResults.push(result);
+          }
+        });
+        
+        console.log('去重後結果:', uniqueResults.length);
+        
+        if (uniqueResults.length > 0) {
+          handlePlacesSearchResults(uniqueResults, query, center);
+        } else {
+          console.log('所有 Places API 搜尋均無結果，降級到 Geocoding API');
+          handleGeocodingSearch(query, bounds, center);
+        }
+      }
+    };
+    
+    // 執行多個搜尋
+    searchQueries.forEach((searchQuery, index) => {
+      setTimeout(() => {
+        const request = {
+          query: searchQuery,
+          location: center,
+          radius: searchRadius,
+          fields: ['name', 'geometry', 'place_id', 'rating', 'price_level', 'opening_hours', 'formatted_address', 'vicinity', 'photos', 'types']
+        };
+        
+        console.log(`執行搜尋 ${index + 1}:`, searchQuery);
+        
+        placesService.textSearch(request, (results, status) => {
+          console.log(`搜尋 ${index + 1} 結果:`, { query: searchQuery, status, count: results?.length });
+          
+          if (status === window.google.maps.places.PlacesServiceStatus.OK && results && results.length > 0) {
+            allResults.push(...results);
+          }
+          
+          handleSearchComplete();
+        });
+      }, index * 100); // 避免同時發送太多請求
+    });
   };
 
   // 處理 Places API 搜尋結果
@@ -477,26 +540,42 @@ const MapContainer = () => {
       const newMarkers = [];
       const searchResults = [];
       
-      // 篩選在合理範圍內的結果
+      // 計算地圖可見範圍，優先顯示範圍內的結果
       const centerLat = center.lat();
       const centerLng = center.lng();
-      const maxDistance = 10000; // 10公里內
+      const bounds = map.getBounds();
       
-      const nearbyResults = results.filter(result => {
+      // 將結果分為範圍內和範圍外
+      const inBoundsResults = [];
+      const outOfBoundsResults = [];
+      
+      results.forEach(result => {
         try {
           if (!result.geometry || !result.geometry.location) {
             console.warn('結果缺少位置資訊:', result);
-            return false;
+            return;
           }
-          const lat = result.geometry.location.lat();
-          const lng = result.geometry.location.lng();
-          const distance = calculateDistanceInMeters(centerLat, centerLng, lat, lng);
-          return distance <= maxDistance;
+          
+          const location = result.geometry.location;
+          const lat = location.lat();
+          const lng = location.lng();
+          
+          if (bounds.contains(location)) {
+            inBoundsResults.push(result);
+          } else {
+            // 對於範圍外的結果，檢查是否在合理距離內
+            const distance = calculateDistanceInMeters(centerLat, centerLng, lat, lng);
+            if (distance <= 15000) { // 15公里內
+              outOfBoundsResults.push(result);
+            }
+          }
         } catch (e) {
           console.warn('處理結果時出錯:', e, result);
-          return false;
         }
-      }).sort((a, b) => {
+      });
+      
+      // 按距離排序
+      const sortByDistance = (a, b) => {
         try {
           const distA = calculateDistanceInMeters(centerLat, centerLng, 
             a.geometry.location.lat(), a.geometry.location.lng());
@@ -507,11 +586,23 @@ const MapContainer = () => {
           console.warn('排序時出錯:', e);
           return 0;
         }
+      };
+      
+      inBoundsResults.sort(sortByDistance);
+      outOfBoundsResults.sort(sortByDistance);
+      
+      // 合併結果：優先顯示範圍內的，然後是範圍外的
+      const nearbyResults = [...inBoundsResults, ...outOfBoundsResults.slice(0, 10)];
+      
+      console.log('Places 搜尋結果:', {
+        總數: results.length,
+        範圍內: inBoundsResults.length,
+        範圍外: outOfBoundsResults.length,
+        顯示: nearbyResults.length
       });
       
-      console.log('附近的 Places 結果:', nearbyResults.length);
-      
-      nearbyResults.slice(0, 10).forEach((place, index) => {
+      // 增加顯示的結果數量，最多顯示20個
+      nearbyResults.slice(0, 20).forEach((place, index) => {
         try {
           const location = place.geometry.location;
           
