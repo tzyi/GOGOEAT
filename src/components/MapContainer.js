@@ -409,6 +409,30 @@ const MapContainer = () => {
     }));
   };
 
+  // 全局函數：處理餐廳詳細資訊
+  useEffect(() => {
+    window.openRestaurantDetails = (placeId) => {
+      console.log('Opening details for:', placeId);
+      const restaurant = restaurants.find(r => r.placeId === placeId || r.id === placeId);
+      if (restaurant && restaurant.placeId) {
+        getPlaceDetails(restaurant.placeId, (details) => {
+          setSelectedRestaurant({
+            ...restaurant,
+            ...details
+          });
+          openModal('restaurant');
+        });
+      } else if (restaurant) {
+        setSelectedRestaurant(restaurant);
+        openModal('restaurant');
+      }
+    };
+    
+    return () => {
+      delete window.openRestaurantDetails;
+    };
+  }, [restaurants]);
+
   // 搜尋提交處理
   const handleSearchSubmit = (query = searchQuery) => {
     // 清除現有標記
@@ -496,6 +520,7 @@ const MapContainer = () => {
 
   // 處理 Places API 搜尋結果
   const handlePlacesSearchResults = (results, query, center) => {
+    console.log('handlePlacesSearchResults');
     try {
       console.log('處理 Places API 搜尋結果');
       
@@ -608,38 +633,132 @@ const MapContainer = () => {
               scaledSize: new window.google.maps.Size(32, 32)
             }
           });
+
+          // 取得圖片網址（若有）
+          let photoHTML = "";
+          if (place.photos && place.photos.length > 0) {
+            const photoUrl = place.photos[0].getUrl({ maxWidth: 300, maxHeight: 200 });
+            photoHTML = `
+              <div style="width: 280px; height: 160px; overflow: hidden; border-radius: 12px; margin-bottom: 12px;">
+                <img src="${photoUrl}" alt="${place.name}" style="width: 100%; height: 100%; object-fit: cover;" />
+              </div>
+            `;
+          }
+          
+          // 創建評分星星
+          const createStars = (rating) => {
+            if (!rating || rating === 0) return '';
+            const fullStars = Math.floor(rating);
+            const hasHalfStar = rating % 1 >= 0.5;
+            let starsHTML = '';
+            
+            for (let i = 0; i < 5; i++) {
+              if (i < fullStars) {
+                starsHTML += '<span style="color: #ffd700;">★</span>';
+              } else if (i === fullStars && hasHalfStar) {
+                starsHTML += '<span style="color: #ffd700;">☆</span>';
+              } else {
+                starsHTML += '<span style="color: #ddd;">☆</span>';
+              }
+            }
+            return `<div style="margin: 6px 0;">${starsHTML} <span style="color: #666; font-size: 13px;">(${rating})</span></div>`;
+          };
+          
+          // 創建價格等級顯示
+          const createPriceLevel = (level) => {
+            if (!level || level === 0) return '';
+            const dollarSigns = '$'.repeat(level);
+            const grayDollars = '$'.repeat(4 - level);
+            return `<div style="margin: 4px 0;"><span style="color: #27ae60;">${dollarSigns}</span><span style="color: #ddd;">${grayDollars}</span></div>`;
+          };
           
           // 創建 InfoWindow
           const infoWindow = new window.google.maps.InfoWindow({
             content: `
-              <div style="padding: 8px;">
-                <strong>${restaurantData.name}</strong><br>
-                <span style="color: #666;">${restaurantData.address}</span><br>
-                <span style="color: #27ae60;">🏪 找到店家</span>
-                ${restaurantData.rating > 0 ? `<br><span style="color: #f39c12;">⭐ ${restaurantData.rating}</span>` : ''}
+              <div style="
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                max-width: 300px;
+                padding: 0;
+                margin: 0;
+                border-radius: 16px;
+                overflow: hidden;
+              ">
+                ${photoHTML}
+                <div style="padding: 16px;">
+                  <h3 style="
+                    margin: 0 0 8px 0;
+                    font-size: 18px;
+                    font-weight: 600;
+                    color: #2c3e50;
+                    line-height: 1.3;
+                  ">${restaurantData.name}</h3>
+                  
+                  ${createStars(restaurantData.rating)}
+                  ${createPriceLevel(restaurantData.priceLevel)}
+                  
+                  <div style="
+                    display: flex;
+                    align-items: center;
+                    margin: 8px 0;
+                    padding: 6px 10px;
+                    background-color: #f8f9fa;
+                    border-radius: 8px;
+                    border-left: 3px solid #27ae60;
+                  ">
+                    <span style="color: #27ae60; margin-right: 6px;">📍</span>
+                    <span style="color: #666; font-size: 14px; line-height: 1.4;">${restaurantData.address}</span>
+                  </div>
+                  
+                  <div style="
+                    margin-top: 12px;
+                    padding-top: 12px;
+                    border-top: 1px solid #eee;
+                    text-align: center;
+                  ">
+                    <button onclick="window.openRestaurantDetails && window.openRestaurantDetails('${restaurantData.placeId || restaurantData.id}')" style="
+                      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                      color: white;
+                      border: none;
+                      padding: 8px 16px;
+                      border-radius: 20px;
+                      font-size: 13px;
+                      font-weight: 500;
+                      cursor: pointer;
+                      transition: transform 0.2s;
+                    " onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+                      查看詳細資訊
+                    </button>
+                  </div>
+                </div>
               </div>
             `
           });
           
           // 點擊標記顯示 InfoWindow
           marker.addListener('click', () => {
+            console.log('infoWindow:', infoWindow);
+            infoWindow.open(map, marker);
+            console.log('629L');
+            console.log('restaurantData :', restaurantData);
             infoWindow.open(map, marker);
             
             // 獲取詳細資訊
-            if (restaurantData.placeId) {
-              getPlaceDetails(restaurantData.placeId, (details) => {
-                setSelectedRestaurant({
-                  ...restaurantData,
-                  ...details
-                });
-                openModal('restaurant');
-              });
-            } else {
-              setSelectedRestaurant(restaurantData);
-              openModal('restaurant');
-            }
+            // if (restaurantData.placeId) {
+            //   getPlaceDetails(restaurantData.placeId, (details) => {
+            //     setSelectedRestaurant({
+            //       ...restaurantData,
+            //       ...details
+            //     });
+            //     openModal('restaurant');
+            //     console.log('640L');
+            //   });
+            // } else {
+            //   setSelectedRestaurant(restaurantData);
+            //   openModal('restaurant');
+            //   console.log('645L');
+            // }
+
           });
-          
           newMarkers.push(marker);
         } catch (e) {
           console.error('創建標記時出錯:', e, place);
@@ -780,10 +899,70 @@ const MapContainer = () => {
           // 創建 InfoWindow
           const infoWindow = new window.google.maps.InfoWindow({
             content: `
-              <div style="padding: 8px;">
-                <strong>${restaurantData.name}</strong><br>
-                <span style="color: #666;">${restaurantData.address}</span><br>
-                <span style="color: #3498db;">📍 搜尋結果</span>
+              <div style="
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                max-width: 300px;
+                padding: 16px;
+                margin: 0;
+                border-radius: 16px;
+                overflow: hidden;
+              ">
+                <h3 style="
+                  margin: 0 0 12px 0;
+                  font-size: 18px;
+                  font-weight: 600;
+                  color: #2c3e50;
+                  line-height: 1.3;
+                ">${restaurantData.name}</h3>
+                
+                <div style="
+                  display: flex;
+                  align-items: center;
+                  margin: 12px 0;
+                  padding: 8px 12px;
+                  background-color: #f8f9fa;
+                  border-radius: 8px;
+                  border-left: 3px solid #3498db;
+                ">
+                  <span style="color: #3498db; margin-right: 8px;">📍</span>
+                  <span style="color: #666; font-size: 14px; line-height: 1.4;">${restaurantData.address}</span>
+                </div>
+                
+                <div style="
+                  display: inline-flex;
+                  align-items: center;
+                  padding: 6px 12px;
+                  background-color: #e3f2fd;
+                  color: #3498db;
+                  border-radius: 8px;
+                  font-size: 13px;
+                  font-weight: 500;
+                  margin: 12px 0;
+                ">
+                  🔍 搜尋結果
+                </div>
+                
+                <div style="
+                  margin-top: 16px;
+                  padding-top: 12px;
+                  border-top: 1px solid #eee;
+                  text-align: center;
+                ">
+                  <button onclick="window.openRestaurantDetails && window.openRestaurantDetails('${restaurantData.placeId || restaurantData.id}')" style="
+                    background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+                    color: white;
+                    border: none;
+                    padding: 10px 20px;
+                    border-radius: 25px;
+                    font-size: 14px;
+                    font-weight: 500;
+                    cursor: pointer;
+                    transition: all 0.2s ease;
+                    box-shadow: 0 2px 8px rgba(52, 152, 219, 0.3);
+                  " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(52, 152, 219, 0.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(52, 152, 219, 0.3)'">
+                    查看詳細資訊
+                  </button>
+                </div>
               </div>
             `
           });
@@ -893,10 +1072,70 @@ const MapContainer = () => {
       
       const infoWindow = new window.google.maps.InfoWindow({
         content: `
-          <div style="padding: 8px;">
-            <strong>${restaurantData.name}</strong><br>
-            <span style="color: #666;">${restaurantData.address}</span><br>
-            <span style="color: #e67e22;">🔍 擴大搜尋結果</span>
+          <div style="
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 300px;
+            padding: 16px;
+            margin: 0;
+            border-radius: 16px;
+            overflow: hidden;
+          ">
+            <h3 style="
+              margin: 0 0 12px 0;
+              font-size: 18px;
+              font-weight: 600;
+              color: #2c3e50;
+              line-height: 1.3;
+            ">${restaurantData.name}</h3>
+            
+            <div style="
+              display: flex;
+              align-items: center;
+              margin: 12px 0;
+              padding: 8px 12px;
+              background-color: #f8f9fa;
+              border-radius: 8px;
+              border-left: 3px solid #e67e22;
+            ">
+              <span style="color: #e67e22; margin-right: 8px;">📍</span>
+              <span style="color: #666; font-size: 14px; line-height: 1.4;">${restaurantData.address}</span>
+            </div>
+            
+            <div style="
+              display: inline-flex;
+              align-items: center;
+              padding: 6px 12px;
+              background-color: #fef5e7;
+              color: #e67e22;
+              border-radius: 8px;
+              font-size: 13px;
+              font-weight: 500;
+              margin: 12px 0;
+            ">
+              🔍 擴大搜尋結果
+            </div>
+            
+            <div style="
+              margin-top: 16px;
+              padding-top: 12px;
+              border-top: 1px solid #eee;
+              text-align: center;
+            ">
+              <button onclick="window.openRestaurantDetails && window.openRestaurantDetails('${restaurantData.placeId || restaurantData.id}')" style="
+                background: linear-gradient(135deg, #e67e22 0%, #d35400 100%);
+                color: white;
+                border: none;
+                padding: 10px 20px;
+                border-radius: 25px;
+                font-size: 14px;
+                font-weight: 500;
+                cursor: pointer;
+                transition: all 0.2s ease;
+                box-shadow: 0 2px 8px rgba(230, 126, 34, 0.3);
+              " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(230, 126, 34, 0.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(230, 126, 34, 0.3)'">
+                查看詳細資訊
+              </button>
+            </div>
           </div>
         `
       });
