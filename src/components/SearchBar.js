@@ -64,7 +64,7 @@ const SearchBar = ({
         </div>
         
         {/* 篩選器 */}
-        <div className="flex space-x-2 overflow-x-auto pb-2 filter-buttons">
+        {/* <div className="flex space-x-2 overflow-x-auto pb-2 filter-buttons">
           <button 
             onClick={onBudgetClick}
             className={`flex items-center space-x-1 sm:space-x-2 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-full whitespace-nowrap transition-colors filter-btn ${
@@ -112,7 +112,7 @@ const SearchBar = ({
             <i className="fas fa-car text-xs sm:text-sm"></i>
             <span className="text-xs sm:text-sm">可停車</span>
           </button>
-        </div>
+        </div> */}
       </div>
     </div>
   );
