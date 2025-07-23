@@ -4,6 +4,8 @@
 
 ![](./img/map.png)
 ![](./img/infowindow.png)
+![](./img/random.png)
+
 
 
 ## ✨ 功能特色

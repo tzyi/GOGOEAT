@@ -2,6 +2,7 @@ import React from 'react';
 import { calculateDistance } from '../utils/mapUtils';
 
 const RandomModal = ({ restaurant, userLocation, onClose, onTryAgain }) => {
+  console.log('RandomModal restaurant:', restaurant);
   const distance = userLocation 
     ? calculateDistance(userLocation, { lat: restaurant.lat, lng: restaurant.lng })
     : 0;
@@ -38,23 +39,54 @@ const RandomModal = ({ restaurant, userLocation, onClose, onTryAgain }) => {
           
           {/* 推薦餐廳 */}
           <div className="bg-gray-50 rounded-2xl p-6 mb-6">
-            <div className="w-24 h-24 rounded-xl mx-auto mb-4 bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center shadow-lg">
-              <div className="text-white text-2xl font-bold">
-                {restaurant.name.charAt(0)}
-              </div>
-            </div>
+{(() => {
+              // 嘗試獲取餐廳照片
+              let photoUrl = null;
+              try {
+                if (restaurant.photos && restaurant.photos.length > 0) {
+                  photoUrl = restaurant.photos[0].getUrl({ maxWidth: 200, maxHeight: 200 });
+                }
+              } catch (e) {
+                console.warn('無法載入餐廳照片:', e);
+              }
+
+              return (
+                <div className="w-24 h-24 rounded-xl mx-auto mb-4 overflow-hidden shadow-lg">
+                  {photoUrl ? (
+                    <img 
+                      src={photoUrl}
+                      alt={restaurant.name}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.target.parentElement.innerHTML = `
+                          <div class="w-full h-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center">
+                            <div class="text-white text-2xl font-bold">${restaurant.name.charAt(0)}</div>
+                          </div>
+                        `;
+                      }}
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center">
+                      <div className="text-white text-2xl font-bold">
+                        {restaurant.name.charAt(0)}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
             <h4 className="text-xl font-bold text-gray-800 mb-2">{restaurant.name}</h4>
             <div className="flex items-center justify-center space-x-4 text-sm text-gray-600 mb-3">
               <div className="flex items-center">
                 <i className="fas fa-star text-warning mr-1"></i>
-                <span>{restaurant.rating}</span>
+                <span>評分 : {restaurant.rating}</span>
               </div>
               <span>•</span>
-              <span>{restaurant.priceRange}</span>
+              <span>價格範圍/等級 : {restaurant.priceRange || restaurant.priceLevel}</span>
               {userLocation && (
                 <>
                   <span>•</span>
-                  <span>{distance.toFixed(1)}km</span>
+                  <span>距離 : {distance.toFixed(1)}km</span>
                 </>
               )}
             </div>

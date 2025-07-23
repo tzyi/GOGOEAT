@@ -20,15 +20,46 @@ const RestaurantCard = ({ restaurant, userLocation, onClose }) => {
         <div className="p-6">
           <div className="w-12 h-1 bg-gray-300 rounded-full mx-auto mb-4"></div>
           
-          {/* 餐廳圖片 */}
-          <img 
-            src={restaurant.image} 
-            alt={restaurant.name}
-            className="w-full h-48 object-cover rounded-xl mb-4"
-            onError={(e) => {
-              e.target.src = `https://via.placeholder.com/400x200/FF6B6B/FFFFFF?text=${encodeURIComponent(restaurant.name)}`;
-            }}
-          />
+{(() => {
+            // 嘗試獲取餐廳照片
+            let photoUrl = null;
+            try {
+              if (restaurant.photos && restaurant.photos.length > 0) {
+                photoUrl = restaurant.photos[0].getUrl({ maxWidth: 400, maxHeight: 300 });
+              }
+            } catch (e) {
+              console.warn('無法載入餐廳照片:', e);
+            }
+
+            return (
+              <div className="w-full h-48 rounded-xl mb-4 overflow-hidden">
+                {photoUrl ? (
+                  <img 
+                    src={photoUrl}
+                    alt={restaurant.name}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.target.parentElement.innerHTML = `
+                        <div class="w-full h-full bg-gradient-to-br from-red-400 to-red-600 flex items-center justify-center">
+                          <div class="text-center text-white">
+                            <div class="text-4xl font-bold mb-2">${restaurant.name.charAt(0)}</div>
+                            <div class="text-sm opacity-80">${restaurant.name}</div>
+                          </div>
+                        </div>
+                      `;
+                    }}
+                  />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-red-400 to-red-600 flex items-center justify-center">
+                    <div className="text-center text-white">
+                      <div className="text-4xl font-bold mb-2">{restaurant.name.charAt(0)}</div>
+                      <div className="text-sm opacity-80">{restaurant.name}</div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
           
           {/* 餐廳資訊 */}
           <div className="mb-4">

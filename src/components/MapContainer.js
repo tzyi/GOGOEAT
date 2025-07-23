@@ -298,20 +298,20 @@ const MapContainer = () => {
     
     const filtered = restaurantData.filter(restaurant => {
       // 搜尋篩選 - 只在有 searchQuery 且不是從搜尋結果來的時候才篩選
-      if (searchQuery && restaurantData === restaurants) {
-        const query = searchQuery.toLowerCase();
-        if (!restaurant.name.toLowerCase().includes(query) && 
-            !restaurant.types.some(type => type.toLowerCase().includes(query))) {
-          console.log('餐廳被搜尋篩選排除:', restaurant.name);
-          return false;
-        }
-      }
+      // if (searchQuery && restaurantData === restaurants) {
+      //   const query = searchQuery.toLowerCase();
+      //   if (!restaurant.name.toLowerCase().includes(query) && 
+      //       !restaurant.types.some(type => type.toLowerCase().includes(query))) {
+      //     console.log('餐廳被搜尋篩選排除:', restaurant.name);
+      //     return false;
+      //   }
+      // }
 
       // 評分篩選
-      if (filters.rating && restaurant.rating < filters.rating) {
-        console.log('餐廳被評分篩選排除:', restaurant.name, '評分:', restaurant.rating);
-        return false;
-      }
+      // if (filters.rating && restaurant.rating < filters.rating) {
+      //   console.log('餐廳被評分篩選排除:', restaurant.name, '評分:', restaurant.rating);
+      //   return false;
+      // }
 
       // 營業狀態篩選
       if (filters.isOpen && !restaurant.isOpen) {
@@ -320,20 +320,20 @@ const MapContainer = () => {
       }
 
       // 價格篩選 (基於 Google Places 的 price_level: 0-4)
-      if (filters.budget) {
-        const budgetToLevel = {
-          'under100': [0, 1],
-          '100-300': [1, 2], 
-          '300-500': [2, 3],
-          'over500': [3, 4]
-        };
+      // if (filters.budget) {
+      //   const budgetToLevel = {
+      //     'under100': [0, 1],
+      //     '100-300': [1, 2], 
+      //     '300-500': [2, 3],
+      //     'over500': [3, 4]
+      //   };
         
-        const levelRange = budgetToLevel[filters.budget];
-        if (restaurant.priceLevel < levelRange[0] || restaurant.priceLevel > levelRange[1]) {
-          console.log('餐廳被價格篩選排除:', restaurant.name, '價格等級:', restaurant.priceLevel);
-          return false;
-        }
-      }
+      //   const levelRange = budgetToLevel[filters.budget];
+      //   if (restaurant.priceLevel < levelRange[0] || restaurant.priceLevel > levelRange[1]) {
+      //     console.log('餐廳被價格篩選排除:', restaurant.name, '價格等級:', restaurant.priceLevel);
+      //     return false;
+      //   }
+      // }
 
       return true;
     });
@@ -637,10 +637,32 @@ const MapContainer = () => {
           // 取得圖片網址（若有）
           let photoHTML = "";
           if (place.photos && place.photos.length > 0) {
-            const photoUrl = place.photos[0].getUrl({ maxWidth: 300, maxHeight: 200 });
+            try {
+              const photoUrl = place.photos[0].getUrl({ 
+                maxWidth: 280, 
+                maxHeight: 160 
+              });
+              photoHTML = `
+                <div style="width: 250px; height: 140px; overflow: hidden; border-radius: 12px; margin-bottom: 8px;">
+                  <img src="${photoUrl}" alt="${place.name}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+                  <div style="display: none; width: 100%; height: 100%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); align-items: center; justify-content: center; color: white; font-size: 48px; font-weight: bold;">
+                    ${restaurantData.name.charAt(0)}
+                  </div>
+                </div>
+              `;
+            } catch (e) {
+              console.warn('無法載入餐廳照片:', e);
+              photoHTML = `
+                <div style="width: 250px; height: 140px; overflow: hidden; border-radius: 12px; margin-bottom: 8px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; color: white; font-size: 48px; font-weight: bold;">
+                  ${restaurantData.name.charAt(0)}
+                </div>
+              `;
+            }
+          } else {
+            // 沒有照片時顯示餐廳名稱第一個字
             photoHTML = `
-              <div style="width: 280px; height: 160px; overflow: hidden; border-radius: 12px; margin-bottom: 12px;">
-                <img src="${photoUrl}" alt="${place.name}" style="width: 100%; height: 100%; object-fit: cover;" />
+              <div style="width: 250px; height: 140px; overflow: hidden; border-radius: 12px; margin-bottom: 8px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; color: white; font-size: 48px; font-weight: bold;">
+                ${restaurantData.name.charAt(0)}
               </div>
             `;
           }
@@ -737,9 +759,7 @@ const MapContainer = () => {
           
           // 點擊標記顯示 InfoWindow
           marker.addListener('click', () => {
-            console.log('infoWindow:', infoWindow);
             infoWindow.open(map, marker);
-            console.log('629L');
             console.log('restaurantData :', restaurantData);
             infoWindow.open(map, marker);
             
