@@ -411,6 +411,15 @@ const MapContainer = () => {
 
   // 搜尋提交處理
   const handleSearchSubmit = () => {
+    // 清除現有標記
+    markers.forEach(marker => {
+      try {
+        marker.setMap(null);
+      } catch (e) {
+        console.warn('清除標記失敗:', e);
+      }
+    });
+
     // 當使用者選擇建議地點時
     searchBox.addListener("places_changed", () => {
       const places = searchBox.getPlaces();
