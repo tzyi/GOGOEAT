@@ -45,6 +45,7 @@ coverage/
 # 部署相關
 .netlify/
 .vercel/
+.zeabur/
 
 # React相關
 .eslintcache
