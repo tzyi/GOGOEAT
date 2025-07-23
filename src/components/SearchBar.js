@@ -47,6 +47,7 @@ const SearchBar = ({
         {/* 搜尋欄 */}
         <div className="relative mb-2">
           <input 
+            id="search-input"
             type="text" 
             placeholder="搜尋餐廳、美食..." 
             value={searchQuery}
