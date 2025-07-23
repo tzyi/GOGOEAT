@@ -700,7 +700,6 @@ const MapContainer = () => {
               <div style="
                 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
                 max-width: 250px;
-                max-height: 350px;
                 padding: 0;
                 margin: 0;
                 border-radius: 16px;
