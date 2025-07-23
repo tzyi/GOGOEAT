@@ -410,7 +410,7 @@ const MapContainer = () => {
   };
 
   // 搜尋提交處理
-  const handleSearchSubmit = () => {
+  const handleSearchSubmit = (query = searchQuery) => {
     // 清除現有標記
     markers.forEach(marker => {
       try {
@@ -420,30 +420,12 @@ const MapContainer = () => {
       }
     });
 
-    // 當使用者選擇建議地點時
-    searchBox.addListener("places_changed", () => {
-      const places = searchBox.getPlaces();
-
-      if (places.length == 0) return;
-
-      // 顯示新的 marker
-      const bounds = new google.maps.LatLngBounds();
-      console.log('當前地圖範圍:', bounds ? bounds.toString() : '無');
-
-      places.forEach(place => {
-        if (!place.geometry) return;
-
-        const marker = new google.maps.Marker({
-          map,
-          title: place.name,
-          position: place.geometry.location
-        });
-        markers.push(marker);
-
-        bounds.extend(place.geometry.location);
-      });
-      map.fitBounds(bounds);
-    });
+    if (!query || !map || !placesService) return;
+    // 執行搜尋邏輯
+    console.log('451L');
+    const center = map.getCenter();
+    const bounds = map.getBounds();
+    performMultipleSearches(query, center, bounds, 2000);
   };
     
 
