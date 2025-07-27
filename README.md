@@ -1,5 +1,7 @@
 # GOGOEAT 🍽️
 
+[![Built with](https://img.shields.io/badge/Built%20with-Stima%20API-blueviolet?logo=robot)](https://api.stima.tech)
+
 基於React和Vite的現代化美食地圖應用，使用Google Maps API幫助用戶快速找到附近符合預算和喜好的餐廳。
 
 ![](./img/map.png)
