@@ -217,7 +217,7 @@ vercel --prod
 - 🛠️ 豐富的插件生態
 
 ### 環境變數
-- 必須以 `REACT_APP_` 開頭
+- 必須以 `VITE_` 開頭
 - 在 `vite.config.js` 中已配置 `process.env` 支援
 - 生產環境需在部署平台設定
 
